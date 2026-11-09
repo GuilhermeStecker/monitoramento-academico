@@ -126,6 +126,31 @@ app.get('/notas', async (req, res) => {
   }
 });
 
+// Listar frequência dos alunos
+app.get('/frequencias', async (req, res) => {
+  try {
+    const resultado = await db.query(
+      `SELECT
+        f.id_frequencia,
+        f.id_aula,
+        f.id_aluno,
+        a.nome_completo AS nome_aluno,
+        f.presente,
+        f.justificativa,
+        f.data_registro
+       FROM frequencia f
+       INNER JOIN aluno a
+         ON f.id_aluno = a.id_aluno
+       ORDER BY f.id_aluno, f.id_aula`
+    );
+
+    res.json(resultado.rows);
+  } catch (erro) {
+    console.error('Erro ao consultar frequências:', erro);
+    res.status(500).json({ erro: 'Erro ao buscar frequências' });
+  }
+});
+
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 
