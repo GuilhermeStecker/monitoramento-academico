@@ -66,6 +66,30 @@ app.get('/professores', async (req, res) => {
   }
 });
 
+// Listar turmas cadastradas
+app.get('/turmas', async (req, res) => {
+  try {
+    const resultado = await db.query(
+      `SELECT
+        id_turma,
+        id_curso,
+        id_periodo,
+        nome_turma,
+        turno
+       FROM turma
+       ORDER BY id_turma`
+    );
+
+    res.json(resultado.rows);
+  } catch (erro) {
+    console.error('Erro ao consultar turmas:', erro);
+
+    res.status(500).json({
+      erro: 'Erro ao buscar turmas'
+    });
+  }
+});
+
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 
