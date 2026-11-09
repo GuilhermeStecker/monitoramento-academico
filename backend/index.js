@@ -151,6 +151,72 @@ app.get('/frequencias', async (req, res) => {
   }
 });
 
+// Indicadores acadêmicos por aluno
+app.get('/indicadores/alunos', async (req, res) => {
+  try {
+    const resultado = await db.query(`
+      SELECT
+        a.id_aluno,
+        a.nome_completo AS nome_aluno,
+
+        (
+          SELECT ROUND(
+            SUM(
+              (aa.nota / NULLIF(av.valor_total, 0))
+              * 10 * av.peso
+            ) / NULLIF(SUM(av.peso), 0),
+            2
+          )
+          FROM aluno_avaliacao aa
+          INNER JOIN avaliacao av
+            ON aa.id_avaliacao = av.id_avaliacao
+          WHERE aa.id_aluno = a.id_aluno
+        ) AS media_notas,
+
+        (
+          SELECT ROUND(
+            COUNT(*) FILTER (WHERE f.presente = true)
+            * 100.0 / NULLIF(COUNT(*), 0),
+            2
+          )
+          FROM frequencia f
+          WHERE f.id_aluno = a.id_aluno
+        ) AS percentual_frequencia
+
+      FROM aluno a
+      ORDER BY a.id_aluno
+    `);
+
+    const indicadores = resultado.rows.map((aluno) => {
+      const media = aluno.media_notas === null
+        ? null
+        : Number(aluno.media_notas);
+
+      const frequencia = aluno.percentual_frequencia === null
+        ? null
+        : Number(aluno.percentual_frequencia);
+
+      return {
+        id_aluno: aluno.id_aluno,
+        nome_aluno: aluno.nome_aluno,
+        media_notas: media,
+        percentual_frequencia: frequencia,
+        alerta_frequencia: frequencia === null
+          ? null
+          : frequencia < 75
+      };
+    });
+
+    res.json(indicadores);
+  } catch (erro) {
+    console.error('Erro ao calcular indicadores:', erro);
+
+    res.status(500).json({
+      erro: 'Erro ao calcular indicadores acadêmicos'
+    });
+  }
+});
+
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 
