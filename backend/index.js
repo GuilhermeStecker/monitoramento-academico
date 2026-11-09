@@ -18,9 +18,9 @@ app.get('/', (req, res) => {
 // Listar alunos cadastrados
 app.get('/alunos', async (req, res) => {
   try {
-    const resultado = await db.query(
-      'SELECT id_aluno, matricula FROM aluno ORDER BY id_aluno'
-    );
+const resultado = await db.query(
+  'SELECT id_aluno, id_usuario, nome_completo, data_nascimento, data_ingresso, matricula_escolar FROM aluno ORDER BY id_aluno'
+);
 
     res.json(resultado.rows);
   } catch (erro) {
