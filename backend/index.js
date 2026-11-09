@@ -101,6 +101,31 @@ app.get('/disciplinas', async (req, res) => {
   }
 });
 
+// Listar notas dos alunos
+app.get('/notas', async (req, res) => {
+  try {
+    const resultado = await db.query(
+      `SELECT
+        aa.id_aluno_avaliacao,
+        aa.id_aluno,
+        a.nome_completo AS nome_aluno,
+        aa.id_avaliacao,
+        aa.nota,
+        aa.observacao,
+        aa.data_registro
+       FROM aluno_avaliacao aa
+       INNER JOIN aluno a
+         ON aa.id_aluno = a.id_aluno
+       ORDER BY aa.id_aluno, aa.id_avaliacao`
+    );
+
+    res.json(resultado.rows);
+  } catch (erro) {
+    console.error('Erro ao consultar notas:', erro);
+    res.status(500).json({ erro: 'Erro ao buscar notas' });
+  }
+});
+
 // Iniciar servidor
 const PORT = process.env.PORT || 3000;
 
