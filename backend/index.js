@@ -216,7 +216,6 @@ app.post('/notas', async (req, res) => {
       mensagem: 'Nota cadastrada com sucesso',
       nota: resultado.rows[0]
     });
-
   } catch (erro) {
     if (erro.code === '23505') {
       return res.status(409).json({
@@ -240,6 +239,131 @@ app.post('/notas', async (req, res) => {
 
     return res.status(500).json({
       erro: 'Erro ao cadastrar nota'
+    });
+  }
+});
+
+// Atualizar nota existente
+app.put('/notas/:id', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { nota, observacao } = req.body;
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return res.status(400).json({
+        erro: 'Informe um ID de nota válido'
+      });
+    }
+
+    if (
+      !req.body ||
+      typeof req.body !== 'object' ||
+      Array.isArray(req.body) ||
+      !Object.prototype.hasOwnProperty.call(req.body, 'nota')
+    ) {
+      return res.status(400).json({
+        erro: 'Informe a nota que deseja atualizar'
+      });
+    }
+
+    if (
+      Object.keys(req.body).some(
+        (campo) => !['nota', 'observacao'].includes(campo)
+      )
+    ) {
+      return res.status(400).json({
+        erro: 'Somente nota e observacao podem ser atualizadas'
+      });
+    }
+
+    if (
+      typeof nota !== 'number' ||
+      !Number.isFinite(nota) ||
+      nota < 0
+    ) {
+      return res.status(400).json({
+        erro: 'A nota deve ser um número maior ou igual a zero'
+      });
+    }
+
+    if (
+      observacao !== undefined &&
+      observacao !== null &&
+      typeof observacao !== 'string'
+    ) {
+      return res.status(400).json({
+        erro: 'A observação deve ser um texto'
+      });
+    }
+
+    const registro = await db.query(
+      `SELECT
+        aa.id_aluno_avaliacao,
+        av.valor_total
+       FROM aluno_avaliacao aa
+       INNER JOIN avaliacao av
+         ON av.id_avaliacao = aa.id_avaliacao
+       WHERE aa.id_aluno_avaliacao = $1`,
+      [id]
+    );
+
+    if (registro.rowCount === 0) {
+      return res.status(404).json({
+        erro: 'Nota não encontrada'
+      });
+    }
+
+    const valorTotal = Number(registro.rows[0].valor_total);
+
+    if (!Number.isFinite(valorTotal) || valorTotal <= 0) {
+      return res.status(422).json({
+        erro: 'A avaliação possui um valor total inválido'
+      });
+    }
+
+    if (nota > valorTotal) {
+      return res.status(400).json({
+        erro: `A nota não pode ultrapassar ${valorTotal}`
+      });
+    }
+
+    const resultado = await db.query(
+      `UPDATE aluno_avaliacao
+       SET
+         nota = $1,
+         observacao = COALESCE($2, observacao)
+       WHERE id_aluno_avaliacao = $3
+       RETURNING
+         id_aluno_avaliacao,
+         id_aluno,
+         id_avaliacao,
+         nota,
+         observacao,
+         data_registro`,
+      [nota, observacao ?? null, id]
+    );
+
+    if (resultado.rowCount === 0) {
+      return res.status(404).json({
+        erro: 'Nota não encontrada'
+      });
+    }
+
+    return res.json({
+      mensagem: 'Nota atualizada com sucesso',
+      nota: resultado.rows[0]
+    });
+  } catch (erro) {
+    if (erro.code === '23514' || erro.code === '23502') {
+      return res.status(400).json({
+        erro: 'Os dados da nota não atendem às regras do banco'
+      });
+    }
+
+    console.error('Erro ao atualizar nota:', erro);
+
+    return res.status(500).json({
+      erro: 'Erro ao atualizar nota'
     });
   }
 });
