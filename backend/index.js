@@ -126,6 +126,124 @@ app.get('/notas', async (req, res) => {
   }
 });
 
+// Cadastrar nota de aluno
+app.post('/notas', async (req, res) => {
+  try {
+    const { id_aluno, id_avaliacao, nota, observacao } = req.body;
+
+    if (
+      !Number.isInteger(id_aluno) ||
+      id_aluno <= 0 ||
+      !Number.isInteger(id_avaliacao) ||
+      id_avaliacao <= 0
+    ) {
+      return res.status(400).json({
+        erro: 'Informe IDs válidos de aluno e avaliação'
+      });
+    }
+
+    if (
+      typeof nota !== 'number' ||
+      !Number.isFinite(nota) ||
+      nota < 0
+    ) {
+      return res.status(400).json({
+        erro: 'A nota deve ser um número maior ou igual a zero'
+      });
+    }
+
+    if (
+      observacao !== undefined &&
+      observacao !== null &&
+      typeof observacao !== 'string'
+    ) {
+      return res.status(400).json({
+        erro: 'A observação deve ser um texto'
+      });
+    }
+
+    const aluno = await db.query(
+      'SELECT id_aluno FROM aluno WHERE id_aluno = $1',
+      [id_aluno]
+    );
+
+    if (aluno.rowCount === 0) {
+      return res.status(404).json({
+        erro: 'Aluno não encontrado'
+      });
+    }
+
+    const avaliacao = await db.query(
+      'SELECT valor_total FROM avaliacao WHERE id_avaliacao = $1',
+      [id_avaliacao]
+    );
+
+    if (avaliacao.rowCount === 0) {
+      return res.status(404).json({
+        erro: 'Avaliação não encontrada'
+      });
+    }
+
+    const valorTotal = Number(avaliacao.rows[0].valor_total);
+
+    if (!Number.isFinite(valorTotal) || valorTotal <= 0) {
+      return res.status(422).json({
+        erro: 'A avaliação possui um valor total inválido'
+      });
+    }
+
+    if (nota > valorTotal) {
+      return res.status(400).json({
+        erro: `A nota não pode ultrapassar ${valorTotal}`
+      });
+    }
+
+    const resultado = await db.query(
+      `INSERT INTO aluno_avaliacao
+        (id_aluno, id_avaliacao, nota, observacao)
+       VALUES ($1, $2, $3, $4)
+       RETURNING
+        id_aluno_avaliacao,
+        id_aluno,
+        id_avaliacao,
+        nota,
+        observacao,
+        data_registro`,
+      [id_aluno, id_avaliacao, nota, observacao ?? null]
+    );
+
+    return res.status(201).json({
+      mensagem: 'Nota cadastrada com sucesso',
+      nota: resultado.rows[0]
+    });
+
+  } catch (erro) {
+    if (erro.code === '23505') {
+      return res.status(409).json({
+        erro: 'Este aluno já possui nota para essa avaliação'
+      });
+    }
+
+    if (erro.code === '23503') {
+      return res.status(400).json({
+        erro: 'Aluno ou avaliação inválidos'
+      });
+    }
+
+    if (erro.code === '23514' || erro.code === '23502') {
+      return res.status(400).json({
+        erro: 'Os dados da nota não atendem às regras do banco'
+      });
+    }
+
+    console.error('Erro ao cadastrar nota:', erro);
+
+    return res.status(500).json({
+      erro: 'Erro ao cadastrar nota'
+    });
+  }
+});
+
 // Listar frequência dos alunos
 app.get('/frequencias', async (req, res) => {
   try {
